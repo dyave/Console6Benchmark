@@ -5,6 +5,7 @@ using System.Xml;
 using BenchmarkDotNet.Attributes;
 using BenchmarkDotNet.Running;
 using NJson = Newtonsoft.Json;
+using System.Diagnostics.Metrics;
 
 namespace Console6Benchmark;
 class Program
@@ -12,68 +13,42 @@ class Program
     static void Main(string[] args)
     {
         var tmp = typeof(Program).Assembly;
-        //var summary = BenchmarkRunner.Run(typeof(Program).Assembly);
+        var summary = BenchmarkRunner.Run(typeof(Program).Assembly);
+        //var x = new PerformanceJson();
         Console.WriteLine("This is the end.");
     }
 }
 
 [MemoryDiagnoser(true)]
-public class Md5VsSha256
+public class PerformanceJson
 {
-    private const int N = 10000;
-    private readonly byte[] data;
-
-    private readonly SHA256 sha256 = SHA256.Create();
-    private readonly MD5 md5 = MD5.Create();
-
     List<PrintFileHeader> letter;
+    string path1 = "D:\\Storage\\PrinterProvider\\NotificacionesDeuda_2023_8_24_Explotacion_1011_SJsonOpt";
+    string path2 = "D:\\Storage\\PrinterProvider\\NotificacionesDeuda_2023_8_24_Explotacion_1011_SJson";
+    string path3 = "D:\\Storage\\PrinterProvider\\NotificacionesDeuda_2023_8_24_Explotacion_1011_NJson";
+    string path4 = "D:\\Storage\\PrinterProvider\\NotificacionesDeuda_2023_8_24_Explotacion_1011_NJsonFull";
 
-    public Md5VsSha256()
+    public PerformanceJson()
     {
-        data = new byte[N];
-        new Random(42).NextBytes(data);
-        
-        string fileName = "NotificacionesDeuda_2023_8_24_Explotacion_1011_JsonNative0_0.json";
+        string fileName = "D:\\Storage\\PrinterProvider\\1011_1 24-08\\NotificacionesDeuda_2023_8_24_Explotacion_1011_JsonNative0_0.json";
         string jsonString = File.ReadAllText(fileName);
         letter = SJson.JsonSerializer.Deserialize<List<PrintFileHeader>>(jsonString)!;
     }
 
     [Benchmark]
-    public byte[] Sha256() => sha256.ComputeHash(data);
-
-    [Benchmark]
-    public byte[] Md5() => md5.ComputeHash(data);
-
-    private double[] TestPerformance(Action<List<PrintFileHeader>, string> writeJson, List<PrintFileHeader> letter, string key, int numberOfTests)
-    {
-        var tiempos = new double[numberOfTests];
-
-        for (int i = 0; i < numberOfTests; i++)
-        {
-            string path = Path.Combine(
-                "D:\\Storage\\PrinterProvider", 
-                @$"NotificacionesDeuda_BM_{DateTime.Now.Year}_{DateTime.Now.Month}_{DateTime.Now.Day}_Explotacion_{key}_{writeJson.Method.Name}_{i}");
-            var ini = DateTime.Now;
-            writeJson(letter, path);
-            var fin = DateTime.Now;
-            var secs = fin.Subtract(ini).TotalSeconds;
-            tiempos[i] = secs;
-        }
-        return tiempos;
-    }
-
-    private void JsonNativeOpt(List<PrintFileHeader> letter, string fileBasePath)
+    public void JsonNativeOpt()
     {
         var options = new SJson.JsonSerializerOptions
         {
             WriteIndented = true,
             Encoder = System.Text.Encodings.Web.JavaScriptEncoder.UnsafeRelaxedJsonEscaping
         };
-        using FileStream createStream = File.Create(@$"{fileBasePath}.json");
+        using FileStream createStream = File.Create(@$"{path1}.json");
         SJson.JsonSerializer.Serialize(createStream, letter, options);
     }
 
-    private void JsonNative(List<PrintFileHeader> letter, string fileBasePath)
+    [Benchmark]
+    public void JsonNative()
     {
         var options = new SJson.JsonSerializerOptions
         {
@@ -82,13 +57,14 @@ public class Md5VsSha256
         };
 
         string json = SJson.JsonSerializer.Serialize(letter, options);
-        using (var stream = new StreamWriter(@$"{fileBasePath}.json"))
+        using (var stream = new StreamWriter(@$"{path2}.json"))
         {
             stream.Write(json);
         }
     }
 
-    private void JsonNsConvert(List<PrintFileHeader> letter, string fileBasePath)
+    [Benchmark]
+    public void JsonNsConvert()
     {
         var options = new NJson.JsonSerializerSettings()
         {
@@ -98,13 +74,14 @@ public class Md5VsSha256
 
         string json = NJson.JsonConvert.SerializeObject(letter, options);
 
-        using (var stream = new StreamWriter(@$"{fileBasePath}.json"))
+        using (var stream = new StreamWriter(@$"{path3}.json"))
         {
             stream.Write(json);
         }
     }
 
-    private void JsonNsFull(List<PrintFileHeader> letter, string fileBasePath)
+    [Benchmark]
+    public void JsonNsFull()
     {
         NJson.JsonSerializer serializer = new NJson.JsonSerializer()
         {
@@ -112,7 +89,7 @@ public class Md5VsSha256
             //Encoder = System.Text.Encodings.Web.JavaScriptEncoder.UnsafeRelaxedJsonEscaping
         };
 
-        using (StreamWriter sw = new StreamWriter(@$"{fileBasePath}.json"))
+        using (StreamWriter sw = new StreamWriter(@$"{path4}.json"))
         using (NJson.JsonWriter writer = new NJson.JsonTextWriter(sw))
         {
             serializer.Serialize(writer, letter);
